@@ -8,8 +8,9 @@ soup = BeautifulSoup(html, "html.parser")
 
 items = []
 
-for img in soup.select("img[src*='skynews-']"):
-    src = img["src"]
+# Find images with data-src attribute containing 'skynews-'
+for img in soup.select("img[data-src*='skynews-']"):
+    src = img.get("data-src")
     alt = img.get("alt", "Newspaper")
     if not src.startswith("http"):
         src = "https:" + src
