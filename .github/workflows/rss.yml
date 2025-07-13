@@ -2,8 +2,8 @@ name: Update RSS
 
 on:
   schedule:
-    - cron: '0 22 * * *'  # Runs daily at 22:00 UTC
-  workflow_dispatch:      # Enables manual trigger button
+    - cron: '0 22 * * *'     # daily at 22:00 UTC
+  workflow_dispatch:         # enable manual trigger
 
 jobs:
   build:
@@ -21,8 +21,11 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Run generate.py script
-        run: python generate.py
+      - name: Run generate.py script and verify output
+        run: |
+          python generate.py
+          echo "Contents of workspace:"
+          ls -l
 
       - name: Commit and push rss.xml
         env:
@@ -30,6 +33,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull origin main
           git add rss.xml
           git commit -m "Update RSS feed" || echo "No changes to commit"
-          git push
+          git push origin main
