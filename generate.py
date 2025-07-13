@@ -2,58 +2,102 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def get_latest_front_pages_url():
-    homepage_url = "https://news.sky.com/uk"
-    html = requests.get(homepage_url).text
-    soup = BeautifulSoup(html, "html.parser")
-
-    # Search for anchor tags with "front pages" in text or href
-    for a in soup.find_all('a', href=True):
-        href = a['href']
-        text = a.get_text(strip=True).lower()
-        if 'front pages' in text or 'front-pages' in href:
-            # Build full URL
-            if href.startswith("/"):
-                href = "https://news.sky.com" + href
-            return href
-    return None
-
-def scrape_front_page_images(article_url):
-    html = requests.get(article_url).text
-    soup = BeautifulSoup(html, "html.parser")
-
-    items = []
-    # Pull first 30 images from the article page
-    for img in soup.select("img"):
-        src = img.get("src") or img.get("data-src")
-        if not src:
-            continue
-        if not src.startswith("http"):
-            src = "https:" + src
-        alt = img.get("alt", "Newspaper Front Page")
-        items.append((alt, src))
-        if len(items) >= 30:  # change limit to 30
-            break
-    return items
+def get_newsworks_front_pages():
+    """Scrape front page images directly from Newsworks"""
+    url = "https://newsworks.org.uk/news-and-opinion/front-pages/"
+    
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        html = response.text
+        soup = BeautifulSoup(html, "html.parser")
+        
+        items = []
+        
+        # Look for images in the front pages section
+        # Try different selectors that might contain the front page images
+        img_selectors = [
+            "img[src*='front']",  # Images with 'front' in src
+            "img[alt*='front']",  # Images with 'front' in alt text
+            "img[alt*='newspaper']",  # Images with 'newspaper' in alt
+            ".front-page img",  # Images in elements with front-page class
+            "article img",  # Images in article elements
+            "main img",  # Images in main content
+            "img"  # Fallback to all images
+        ]
+        
+        for selector in img_selectors:
+            images = soup.select(selector)
+            for img in images:
+                src = img.get("src") or img.get("data-src")
+                if not src:
+                    continue
+                    
+                # Convert relative URLs to absolute
+                if src.startswith("//"):
+                    src = "https:" + src
+                elif src.startswith("/"):
+                    src = "https://newsworks.org.uk" + src
+                elif not src.startswith("http"):
+                    continue
+                
+                # Skip very small images (likely logos/icons)
+                width = img.get("width")
+                height = img.get("height")
+                if width and height:
+                    try:
+                        if int(width) < 100 or int(height) < 100:
+                            continue
+                    except ValueError:
+                        pass
+                
+                alt = img.get("alt", "Newspaper Front Page")
+                
+                # Skip images that are clearly not front pages
+                if any(skip_word in src.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
+                    continue
+                if any(skip_word in alt.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
+                    continue
+                
+                items.append((alt, src))
+                
+                if len(items) >= 10:  # Get up to 10 images
+                    break
+            
+            if items:  # If we found images with this selector, stop trying others
+                break
+        
+        return items
+        
+    except requests.RequestException as e:
+        print(f"Error fetching Newsworks page: {e}")
+        return []
 
 def generate_rss(items, source_url):
+    """Generate RSS feed from front page items"""
     rss_items = ""
     for title, img_url in items:
+        # Escape XML special characters in title
+        title = title.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        
         rss_items += f"""
         <item>
           <title>{title}</title>
           <link>{img_url}</link>
-          <description><![CDATA[<img src="{img_url}" />]]></description>
+          <description><![CDATA[<img src="{img_url}" alt="{title}" />]]></description>
+          <guid>{img_url}</guid>
+          <pubDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
         </item>
         """
 
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>Sky News Front Pages</title>
+    <title>UK Newspaper Front Pages - Newsworks</title>
     <link>{source_url}</link>
-    <description>Daily UK newspaper front pages</description>
+    <description>Daily UK newspaper front pages from Newsworks</description>
     <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
+    <language>en-GB</language>
     {rss_items}
   </channel>
 </rss>
@@ -61,20 +105,26 @@ def generate_rss(items, source_url):
     return rss_feed
 
 def main():
-    front_pages_url = get_latest_front_pages_url()
-    if not front_pages_url:
-        print("No front pages article found on homepage.")
-        return
-
-    items = scrape_front_page_images(front_pages_url)
+    """Main function to scrape and generate RSS"""
+    source_url = "https://newsworks.org.uk/news-and-opinion/front-pages/"
+    
+    print("Scraping front pages from Newsworks...")
+    items = get_newsworks_front_pages()
+    
     if not items:
-        print("No front page images found on article.")
+        print("No front page images found.")
         return
-
-    rss_xml = generate_rss(items, front_pages_url)
-    with open("rss.xml", "w", encoding="utf-8") as f:
+    
+    print(f"Found {len(items)} front page images:")
+    for title, url in items:
+        print(f"  - {title}")
+    
+    rss_xml = generate_rss(items, source_url)
+    
+    with open("newsworks_front_pages.xml", "w", encoding="utf-8") as f:
         f.write(rss_xml)
-    print("RSS feed generated.")
+    
+    print("RSS feed generated as 'newsworks_front_pages.xml'")
 
 if __name__ == "__main__":
     main()
