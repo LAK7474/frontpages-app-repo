@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timezone
 
 def get_tomorrows_papers_front_pages():
     """Scrape front page images from Tomorrow's Papers Today"""
@@ -96,7 +96,7 @@ def generate_rss(items, source_url):
           <link>{img_url}</link>
           <description><![CDATA[<img src="{img_url}" alt="{title}" />]]></description>
           <guid>{img_url}</guid>
-          <pubDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
+          <pubDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
         </item>
         """
 
@@ -106,7 +106,7 @@ def generate_rss(items, source_url):
     <title>UK Newspaper Front Pages - Tomorrow's Papers Today</title>
     <link>{source_url}</link>
     <description>Daily UK newspaper front pages from Tomorrow's Papers Today</description>
-    <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
+    <lastBuildDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
     <language>en-GB</language>
     {rss_items}
   </channel>
@@ -131,10 +131,10 @@ def main():
     
     rss_xml = generate_rss(items, source_url)
     
-    with open("tomorrows_papers_front_pages.xml", "w", encoding="utf-8") as f:
+    with open("rss.xml", "w", encoding="utf-8") as f:
         f.write(rss_xml)
     
-    print("RSS feed generated as 'tomorrows_papers_front_pages.xml'")
+    print("RSS feed generated as 'rss.xml'")
 
 if __name__ == "__main__":
     main()
