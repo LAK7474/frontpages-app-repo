@@ -23,7 +23,7 @@ def scrape_front_page_images(article_url):
     soup = BeautifulSoup(html, "html.parser")
 
     items = []
-    # Find images with "skynews-" in src as before or any img inside article
+    # Pull first 30 images from the article page
     for img in soup.select("img"):
         src = img.get("src") or img.get("data-src")
         if not src:
@@ -32,7 +32,7 @@ def scrape_front_page_images(article_url):
             src = "https:" + src
         alt = img.get("alt", "Newspaper Front Page")
         items.append((alt, src))
-        if len(items) >= 6:  # limit to 6 images
+        if len(items) >= 30:  # change limit to 30
             break
     return items
 
