@@ -67,11 +67,11 @@ def get_tomorrows_papers_front_pages():
                 if not alt or alt.strip() == "":
                     # Extract filename from URL and clean it up
                     filename = src.split('/')[-1].split('.')[0]  # Get filename without extension
-                    # Replace hyphens with spaces and remove numbers
-                    alt = filename.replace('-', ' ').strip()
-                    # Remove trailing numbers like "-1", "-8" etc
+                    # Remove trailing numbers like "-1", "-8" etc first
                     import re
-                    alt = re.sub(r'-\d+$', '', alt).strip()
+                    filename = re.sub(r'-\d+$', '', filename)
+                    # Then replace hyphens with spaces
+                    alt = filename.replace('-', ' ').strip()
                     if not alt:
                         alt = "Newspaper Front Page"
                 
