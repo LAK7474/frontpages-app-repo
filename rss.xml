@@ -2,9 +2,45 @@
 <rss version="2.0">
   <channel>
     <title>Sky News Front Pages</title>
-    <link>https://news.sky.com/the-front-pages</link>
+    <link>https://news.sky.com/story/fridays-national-newspaper-front-pages-12427754</link>
     <description>Daily UK newspaper front pages</description>
-    <lastBuildDate>Sun, 13 Jul 2025 05:30:04 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 13 Jul 2025 05:39:21 +0000</lastBuildDate>
     
+        <item>
+          <title>sky news logo</title>
+          <link>https:/resources/sky-news-logo.svg?v=1</link>
+          <description><![CDATA[<img src="https:/resources/sky-news-logo.svg?v=1" />]]></description>
+        </item>
+        
+        <item>
+          <title>sky news logo</title>
+          <link>https:/resources/sky-news-logo-dark.svg?v=1</link>
+          <description><![CDATA[<img src="https:/resources/sky-news-logo-dark.svg?v=1" />]]></description>
+        </item>
+        
+        <item>
+          <title>Powered by Live center</title>
+          <link>https:/assets/ui-graphics/ui-liveblog-provider-logo-v2.svg</link>
+          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-liveblog-provider-logo-v2.svg" />]]></description>
+        </item>
+        
+        <item>
+          <title>Powered by Live center</title>
+          <link>https:/assets/ui-graphics/ui-liveblog-provider-logo-dark-v2.svg</link>
+          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-liveblog-provider-logo-dark-v2.svg" />]]></description>
+        </item>
+        
+        <item>
+          <title>Newspaper Front Page</title>
+          <link>https:/assets/ui-graphics/ui-app-promo-apple-app-store.png</link>
+          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-app-promo-apple-app-store.png" />]]></description>
+        </item>
+        
+        <item>
+          <title>Newspaper Front Page</title>
+          <link>https:/assets/ui-graphics/ui-app-promo-google-play.png</link>
+          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-app-promo-google-play.png" />]]></description>
+        </item>
+        
   </channel>
 </rss>
