@@ -2,32 +2,34 @@ name: Update RSS
 
 on:
   schedule:
-    - cron: "*/10 22-23 * * *"  # Every 10 minutes between 22:00–23:59 UTC
-    - cron: "0 0 * * *"         # Once daily at 00:00 UTC
-  workflow_dispatch:
+    - cron: '0 22 * * *'    # runs once daily at 22:00 UTC
+  workflow_dispatch:        # allows manual triggering
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repo
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install beautifulsoup4 requests
+    - name: Install dependencies
+      run: pip install requests beautifulsoup4
 
-      - name: Run script
-        run: python generate.py
+    - name: Run script
+      run: python generate.py
 
-      - name: Commit and push RSS
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add rss.xml
-          git commit -m "Update RSS feed" || echo "No changes to commit"
-          git push
+    - name: Commit and push RSS
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add rss.xml
+        git commit -m "Update RSS feed" || echo "No changes to commit"
+        git push
