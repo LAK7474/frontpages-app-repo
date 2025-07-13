@@ -6,8 +6,18 @@ def get_newsworks_front_pages():
     """Scrape front page images directly from Newsworks"""
     url = "https://newsworks.org.uk/news-and-opinion/front-pages/"
     
+    # Headers to avoid 403 blocking
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    }
+    
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         html = response.text
         soup = BeautifulSoup(html, "html.parser")
