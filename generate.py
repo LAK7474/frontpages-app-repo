@@ -61,7 +61,19 @@ def get_tomorrows_papers_front_pages():
                     except ValueError:
                         pass
                 
-                alt = img.get("alt", "Newspaper Front Page")
+                alt = img.get("alt", "")
+                
+                # If no alt text, extract newspaper name from filename
+                if not alt or alt.strip() == "":
+                    # Extract filename from URL and clean it up
+                    filename = src.split('/')[-1].split('.')[0]  # Get filename without extension
+                    # Replace hyphens with spaces and remove numbers
+                    alt = filename.replace('-', ' ').strip()
+                    # Remove trailing numbers like "-1", "-8" etc
+                    import re
+                    alt = re.sub(r'-\d+$', '', alt).strip()
+                    if not alt:
+                        alt = "Newspaper Front Page"
                 
                 # Skip images that are clearly not front pages
                 if any(skip_word in src.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
