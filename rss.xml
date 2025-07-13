@@ -1,57 +1,90 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>Sky News Front Pages</title>
-    <link>https://news.sky.com/story/fridays-national-newspaper-front-pages-12427754</link>
-    <description>Daily UK newspaper front pages</description>
-    <lastBuildDate>Sun, 13 Jul 2025 05:45:32 +0000</lastBuildDate>
+    <title>UK Newspaper Front Pages - Tomorrow's Papers Today</title>
+    <link>https://www.tomorrowspapers.co.uk/</link>
+    <description>Daily UK newspaper front pages from Tomorrow's Papers Today</description>
+    <lastBuildDate>Sun, 13 Jul 2025 10:10:29 +0000</lastBuildDate>
+    <language>en-GB</language>
     
         <item>
-          <title>sky news logo</title>
-          <link>https:/resources/sky-news-logo.svg?v=1</link>
-          <description><![CDATA[<img src="https:/resources/sky-news-logo.svg?v=1" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Times-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Times-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Times-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>sky news logo</title>
-          <link>https:/resources/sky-news-logo-dark.svg?v=1</link>
-          <description><![CDATA[<img src="https:/resources/sky-news-logo-dark.svg?v=1" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Independent-2.png</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Independent-2.png" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Independent-2.png</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Powered by Live center</title>
-          <link>https:/assets/ui-graphics/ui-liveblog-provider-logo-v2.svg</link>
-          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-liveblog-provider-logo-v2.svg" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-People-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-People-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-People-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Powered by Live center</title>
-          <link>https:/assets/ui-graphics/ui-liveblog-provider-logo-dark-v2.svg</link>
-          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-liveblog-provider-logo-dark-v2.svg" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Telegraph-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Telegraph-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Telegraph-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Newspaper Front Page</title>
-          <link>https:/assets/ui-graphics/ui-app-promo-apple-app-store.png</link>
-          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-app-promo-apple-app-store.png" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Mirror-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Mirror-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Mirror-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Newspaper Front Page</title>
-          <link>https:/assets/ui-graphics/ui-app-promo-google-play.png</link>
-          <description><![CDATA[<img src="https:/assets/ui-graphics/ui-app-promo-google-play.png" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Observer-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Observer-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Observer-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Newspaper Front Page</title>
-          <link>https://news.sky.com/resources/apple-touch-icon.png</link>
-          <description><![CDATA[<img src="https://news.sky.com/resources/apple-touch-icon.png" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Mail-on-Sunday-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Mail-on-Sunday-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Mail-on-Sunday-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
         <item>
-          <title>Sky.com Homepage</title>
-          <link>https:/resources/sky-spectrum-logo.png</link>
-          <description><![CDATA[<img src="https:/resources/sky-spectrum-logo.png" />]]></description>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Express.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Express.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Sunday-Express.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
+        </item>
+        
+        <item>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Daily-Star-Sunday-1.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Daily-Star-Sunday-1.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/Daily-Star-Sunday-1.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
+        </item>
+        
+        <item>
+          <title></title>
+          <link>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/i-8.jpg</link>
+          <description><![CDATA[<img src="https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/i-8.jpg" alt="" />]]></description>
+          <guid>https://www.tomorrowspapers.co.uk/wp-content/uploads/2025/07/i-8.jpg</guid>
+          <pubDate>Sun, 13 Jul 2025 10:10:29 +0000</pubDate>
         </item>
         
   </channel>
