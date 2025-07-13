@@ -2,9 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-def get_newsworks_front_pages():
-    """Scrape front page images directly from Newsworks"""
-    url = "https://newsworks.org.uk/news-and-opinion/front-pages/"
+def get_tomorrows_papers_front_pages():
+    """Scrape front page images from Tomorrow's Papers Today"""
+    url = "https://www.tomorrowspapers.co.uk/"
     
     # Headers to avoid 403 blocking
     headers = {
@@ -47,7 +47,7 @@ def get_newsworks_front_pages():
                 if src.startswith("//"):
                     src = "https:" + src
                 elif src.startswith("/"):
-                    src = "https://newsworks.org.uk" + src
+                    src = "https://www.tomorrowspapers.co.uk" + src
                 elif not src.startswith("http"):
                     continue
                 
@@ -103,9 +103,9 @@ def generate_rss(items, source_url):
     rss_feed = f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>UK Newspaper Front Pages - Newsworks</title>
+    <title>UK Newspaper Front Pages - Tomorrow's Papers Today</title>
     <link>{source_url}</link>
-    <description>Daily UK newspaper front pages from Newsworks</description>
+    <description>Daily UK newspaper front pages from Tomorrow's Papers Today</description>
     <lastBuildDate>{datetime.utcnow().strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
     <language>en-GB</language>
     {rss_items}
@@ -116,10 +116,10 @@ def generate_rss(items, source_url):
 
 def main():
     """Main function to scrape and generate RSS"""
-    source_url = "https://newsworks.org.uk/news-and-opinion/front-pages/"
+    source_url = "https://www.tomorrowspapers.co.uk/"
     
-    print("Scraping front pages from Newsworks...")
-    items = get_newsworks_front_pages()
+    print("Scraping front pages from Tomorrow's Papers Today...")
+    items = get_tomorrows_papers_front_pages()
     
     if not items:
         print("No front page images found.")
@@ -131,10 +131,10 @@ def main():
     
     rss_xml = generate_rss(items, source_url)
     
-    with open("newsworks_front_pages.xml", "w", encoding="utf-8") as f:
+    with open("tomorrows_papers_front_pages.xml", "w", encoding="utf-8") as f:
         f.write(rss_xml)
     
-    print("RSS feed generated as 'newsworks_front_pages.xml'")
+    print("RSS feed generated as 'tomorrows_papers_front_pages.xml'")
 
 if __name__ == "__main__":
     main()
