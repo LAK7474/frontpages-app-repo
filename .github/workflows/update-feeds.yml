@@ -1,4 +1,4 @@
-name: Update RSS
+name: Update Feeds
 
 on:
   schedule:
@@ -21,19 +21,20 @@ jobs:
       - name: Install dependencies
         run: pip install requests beautifulsoup4
 
-      - name: Run generate.py script and verify output
+      - name: Run generate.py script to create feeds
         run: |
           python generate.py
           echo "Contents of workspace:"
           ls -l
 
-      - name: Commit and push rss.xml
+      - name: Commit and push updated feeds
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git pull origin main
-          git add rss.xml
-          git commit -m "Update RSS feed" || echo "No changes to commit"
+          git add rss.xml frontpages.json
+          # The commit will only happen if there are changes to the tracked files
+          git commit -m "Update RSS and JSON feeds" || echo "No changes to commit"
           git push origin main
