@@ -172,7 +172,7 @@ def generate_json(items, source_url, rss_feed_url):
 def main():
     """Main function to scrape and generate RSS and JSON"""
     source_url = "https://www.tomorrowspapers.co.uk/"
-    rss_feed_url = "https://lak7474.github.io/skynews-frontpages/rss.xml"
+    rss_feed_url = "https://lak7474.github.io/frontpages-app-repo/rss.xml"
     
     print("Scraping front pages from Tomorrow's Papers Today...")
     items = get_tomorrows_papers_front_pages()

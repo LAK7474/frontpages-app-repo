@@ -10,7 +10,7 @@ from io import BytesIO
 SERVICE_ACCOUNT_PATH = "frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json"
 BUCKET_NAME = "frontpages-fireb.firebasestorage.app"
 COLLECTION_NAME = "frontpage_fixed"
-RSS_JSON_FEED_URL = "https://lak7474.github.io/skynews-frontpages/frontpages.json"
+RSS_JSON_FEED_URL = "https://lak7474.github.io/frontpages-app-repo/frontpages.json"
 
 # === INITIALIZE FIREBASE ===
 if not firebase_admin._apps:
