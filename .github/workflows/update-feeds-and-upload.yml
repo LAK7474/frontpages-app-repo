@@ -10,15 +10,8 @@ on:
 
 jobs:
   update_feeds:
+    if: github.event.schedule != null && contains(['59 20 * * *', '59 21 * * *', '59 22 * * *'], github.event.schedule.cron)
     runs-on: ubuntu-latest
-    # Run on schedule or manual trigger
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && (
-        github.event.schedule.cron == '59 20 * * *' ||
-        github.event.schedule.cron == '59 21 * * *' ||
-        github.event.schedule.cron == '59 22 * * *'
-      ))
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,16 +39,9 @@ jobs:
           git push origin main
 
   upload_frontpages:
+    if: github.event.schedule != null && contains(['4 21 * * *', '4 22 * * *', '4 23 * * *'], github.event.schedule.cron)
     runs-on: ubuntu-latest
     needs: update_feeds
-    # Run on schedule or manual trigger
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'schedule' && (
-        github.event.schedule.cron == '4 21 * * *' ||
-        github.event.schedule.cron == '4 22 * * *' ||
-        github.event.schedule.cron == '4 23 * * *'
-      ))
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,7 +57,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Set up Firebase credentials
-        run: echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json
+        run: |
+          # Write secret JSON string exactly into a file (no extra quotes or newlines added)
+          printf '%s' "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json
+
+      - name: Show Firebase credentials file content (for debug)
+        run: cat -A frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json
+
+      - name: Validate Firebase credentials JSON format
+        run: python -c "import json; json.load(open('frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json'))"
 
       - name: Run upload script
         run: python upload_news_images_create_documents_fields.py
