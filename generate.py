@@ -1,16 +1,22 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone
-import json # <-- Added import for JSON handling
-import re   # <-- Added import for regex
+import re
+import json # <-- ADDED for JSON functionality
 
+# --- THIS IS YOUR ORIGINAL, UNCHANGED SCRAPING FUNCTION ---
 def get_tomorrows_papers_front_pages():
     """Scrape front page images from Tomorrow's Papers Today"""
     url = "https://www.tomorrowspapers.co.uk/"
     
+    # Headers to avoid 403 blocking
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
     }
     
     try:
@@ -21,51 +27,82 @@ def get_tomorrows_papers_front_pages():
         
         items = []
         
-        # This selector targets the specific divs containing the paper images
-        paper_divs = soup.select("div.td-module-thumb")
-
-        for div in paper_divs:
-            img = div.find("img")
-            if not img:
-                continue
-
-            src = img.get("src") or img.get("data-src")
-            if not src:
-                continue
+        # Look for images in the front pages section
+        # Try different selectors that might contain the front page images
+        img_selectors = [
+            "img[src*='front']",  # Images with 'front' in src
+            "img[alt*='front']",  # Images with 'front' in alt text
+            "img[alt*='newspaper']",  # Images with 'newspaper' in alt
+            ".front-page img",  # Images in elements with front-page class
+            "article img",  # Images in article elements
+            "main img",  # Images in main content
+            "img"  # Fallback to all images
+        ]
+        
+        for selector in img_selectors:
+            images = soup.select(selector)
+            for img in images:
+                src = img.get("src") or img.get("data-src")
+                if not src:
+                    continue
+                    
+                # Convert relative URLs to absolute
+                if src.startswith("//"):
+                    src = "https:" + src
+                elif src.startswith("/"):
+                    src = "https://www.tomorrowspapers.co.uk" + src
+                elif not src.startswith("http"):
+                    continue
                 
-            # Convert relative URLs to absolute
-            if src.startswith("//"):
-                src = "https:" + src
-            elif src.startswith("/"):
-                src = "https://www.tomorrowspapers.co.uk" + src
+                # Skip very small images (likely logos/icons)
+                width = img.get("width")
+                height = img.get("height")
+                if width and height:
+                    try:
+                        if int(width) < 100 or int(height) < 100:
+                            continue
+                    except ValueError:
+                        pass
+                
+                alt = img.get("alt", "")
+                
+                # If no alt text, extract newspaper name from filename
+                if not alt or alt.strip() == "":
+                    # Extract filename from URL and clean it up
+                    filename = src.split('/')[-1].split('.')[0]  # Get filename without extension
+                    # Remove trailing numbers like "-1", "-8" etc first
+                    filename = re.sub(r'-\d+$', '', filename)
+                    # Then replace hyphens with spaces
+                    alt = filename.replace('-', ' ').strip()
+                    if not alt:
+                        alt = "Newspaper Front Page"
+                
+                # Skip images that are clearly not front pages
+                if any(skip_word in src.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
+                    continue
+                if any(skip_word in alt.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
+                    continue
+                
+                # Avoid duplicates
+                if not any(item[1] == src for item in items):
+                    items.append((alt, src))
+
+                if len(items) >= 10:  # Get up to 10 images
+                    break
             
-            # Use the image's alt text for the title
-            alt = img.get("alt", "").strip()
-
-            # Skip images that are clearly not front pages
-            if any(skip_word in src.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile', 'placeholder']):
-                continue
-            if not alt or any(skip_word in alt.lower() for skip_word in ['logo', 'icon', 'avatar', 'profile']):
-                continue
-
-            # Avoid duplicates
-            if not any(item[1] == src for item in items):
-                 items.append((alt, src))
-
-            if len(items) >= 12: # Limit to a reasonable number
+            if items:  # If we found images with this selector, stop trying others
                 break
         
         return items
         
     except requests.RequestException as e:
-        print(f"Error fetching page: {e}")
+        print(f"Error fetching Newsworks page: {e}")
         return []
 
+# --- THIS IS YOUR ORIGINAL, UNCHANGED RSS FUNCTION ---
 def generate_rss(items, source_url):
     """Generate RSS feed from front page items"""
     rss_items = ""
-    pub_date_str = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
-
     for title, img_url in items:
         # Escape XML special characters in title
         title = title.replace("&", "&").replace("<", "<").replace(">", ">")
@@ -76,7 +113,7 @@ def generate_rss(items, source_url):
           <link>{img_url}</link>
           <description><![CDATA[<img src="{img_url}" alt="{title}" />]]></description>
           <guid>{img_url}</guid>
-          <pubDate>{pub_date_str}</pubDate>
+          <pubDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")}</pubDate>
         </item>
         """
 
@@ -86,7 +123,7 @@ def generate_rss(items, source_url):
     <title>UK Newspaper Front Pages - Tomorrow's Papers Today</title>
     <link>{source_url}</link>
     <description>Daily UK newspaper front pages from Tomorrow's Papers Today</description>
-    <lastBuildDate>{pub_date_str}</lastBuildDate>
+    <lastBuildDate>{datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")}</lastBuildDate>
     <language>en-GB</language>
     {rss_items}
   </channel>
@@ -94,14 +131,11 @@ def generate_rss(items, source_url):
 """
     return rss_feed
 
-# --- NEW FUNCTION TO GENERATE JSON ---
+# --- THIS IS THE NEW FUNCTION TO GENERATE JSON ---
 def generate_json(items, source_url, rss_feed_url):
     """Generate JSON feed from front page items in the specified format."""
-    
-    # Get the current time for the publication date
     pub_date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
-    # Build the main dictionary structure
     output_dict = {
         "status": "ok",
         "feed": {
@@ -115,7 +149,6 @@ def generate_json(items, source_url, rss_feed_url):
         "items": []
     }
 
-    # Create a dictionary for each item and add it to the list
     for title, img_url in items:
         image_html = f'<img src="{img_url}" alt="{title}">'
         
@@ -133,13 +166,13 @@ def generate_json(items, source_url, rss_feed_url):
         }
         output_dict["items"].append(item_dict)
 
-    return output_dict
+    return json.dumps(output_dict, indent=2)
 
+# --- THIS IS YOUR MAIN FUNCTION, MODIFIED TO ADD THE JSON STEPS ---
 def main():
-    """Main function to scrape and generate RSS and JSON feeds"""
+    """Main function to scrape and generate RSS and JSON"""
     source_url = "https://www.tomorrowspapers.co.uk/"
-    # The URL where your GitHub pages RSS feed is/will be hosted
-    rss_feed_url = "https://lak7474.github.io/skynews-frontpages/rss.xml" 
+    rss_feed_url = "https://lak7474.github.io/skynews-frontpages/rss.xml"
     
     print("Scraping front pages from Tomorrow's Papers Today...")
     items = get_tomorrows_papers_front_pages()
@@ -152,19 +185,16 @@ def main():
     for title, url in items:
         print(f"  - {title}")
     
-    # --- Generate and save RSS feed ---
+    # Original RSS generation
     rss_xml = generate_rss(items, source_url)
     with open("rss.xml", "w", encoding="utf-8") as f:
         f.write(rss_xml)
     print("RSS feed generated as 'rss.xml'")
 
-    # --- Generate and save JSON feed ---
-    json_data = generate_json(items, source_url, rss_feed_url)
-    # Use json.dump() to write the dictionary to a file
+    # Added JSON generation
+    json_output = generate_json(items, source_url, rss_feed_url)
     with open("frontpages.json", "w", encoding="utf-8") as f:
-        # indent=2 makes the file human-readable
-        # ensure_ascii=False allows for proper character encoding
-        json.dump(json_data, f, indent=2, ensure_ascii=False)
+        f.write(json_output)
     print("JSON feed generated as 'frontpages.json'")
 
 if __name__ == "__main__":
