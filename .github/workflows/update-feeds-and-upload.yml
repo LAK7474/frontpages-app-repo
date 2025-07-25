@@ -57,7 +57,7 @@ jobs:
 
       - name: Set up Firebase credentials
         run: |
-          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json
 
       - name: Validate Firebase credentials JSON format
         run: python -c "import json; json.load(open('frontpages-fireb-firebase-adminsdk-fbsvc-ebba7340c0.json'))"
