@@ -8,7 +8,7 @@ from io import BytesIO
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
-BUCKET_NAME = "frontpages-fireb"
+BUCKET_NAME = "frontpages-fireb.firebasestorage.app"
 COLLECTION_NAME = "frontpage_fixed"
 RSS_JSON_FEED_URL = "https://lak7474.github.io/frontpages-app-repo/frontpages.json"
 
