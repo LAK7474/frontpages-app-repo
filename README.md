@@ -1,1 +1,1 @@
-# skynews-frontpages
+frontpages-app-repo

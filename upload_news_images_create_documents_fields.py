@@ -81,6 +81,14 @@ def process_items(items):
         filename = os.path.basename(image_src)
         doc_id = os.path.splitext(filename)[0]
 
+        # Determine if this is a US or UK paper based on the title
+        us_titles = [
+            "The Wall Street Journal", "USA Today", "The New York Times", "The Washington Post",
+            "Los Angeles Times", "New York Post", "Chicago Tribune", "Newsday", "The Boston Globe", "Houston Chronicle"
+        ]
+        title = item.get('title', '')
+        region = "US" if title in us_titles else "UK"
+
         try:
             r = requests.get(image_src, stream=True)
             r.raise_for_status()
@@ -89,23 +97,16 @@ def process_items(items):
             print(f" ❌ Download failed for {image_src}: {e}")
             continue
 
-        # --- ADDED BLURHASH LOGIC ---
-        blurhash_string = None  # <--- Initialize variable to ensure it always exists.
+        blurhash_string = None
         try:
             img = Image.open(BytesIO(img_data))
-            # Ensure image is in RGB mode, which BlurHash requires.
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-                
             width, height = img.size
-            
-            # Generate the BlurHash string from the Pillow image object.
             blurhash_string = blurhash.encode(img, x_components=4, y_components=3)
-
         except Exception as e:
             print(f" ❌ Could not get image dimensions or blurhash for {filename}: {e}")
             width, height = None, None
-        # --- END OF BLURHASH LOGIC ---
 
         blob_path = f"images/{filename}"
         blob = bucket.blob(blob_path)
@@ -116,15 +117,16 @@ def process_items(items):
 
         doc_ref = db.collection(COLLECTION_NAME).document(doc_id)
         doc_ref.set({
-            'title': item.get('title', ''),
+            'title': title,
             'pubDate': item.get('pubDate', ''),
             'image': public_url,
             'width': width,
             'height': height,
-            'blurhash': blurhash_string,  # <--- ADDED: Save the new blurhash string to Firestore.
+            'blurhash': blurhash_string,
+            'region': region,
             'fetched': firestore.SERVER_TIMESTAMP
         })
-        print(f" ✅ Uploaded & saved: {doc_id} ({width}x{height})")
+        print(f" ✅ Uploaded & saved: {doc_id} ({width}x{height}) [{region}]")
 
 # === MAIN ===
 # This function is unchanged.
