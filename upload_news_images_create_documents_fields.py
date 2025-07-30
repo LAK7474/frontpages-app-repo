@@ -122,7 +122,7 @@ def process_items(items): # Define the function to process items.
             light_filename = f"light-{original_filename}" # Create a filename for the light version.
             light_doc_id = f"light-{os.path.splitext(original_filename)[0]}" # Create a document ID for the light version.
             blob_path_light = f"images/{light_filename}" # Define the path in Cloud Storage for the light image.
-            bucket.blob(blob_path_light).upload_from_string(original_img_data, content_type=content_type) # Upload the original image data to Storage.
+            bucket.blob(blob_path_light).upload_from_string(final_light_img_data, content_type='image/jpeg') # Upload the processed light image data to Storage.
             public_url_light = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_light, safe='')}?alt=media" # Construct the public URL for the uploaded light image.
             db.collection(COLLECTION_NAME).document(light_doc_id).set({ # Set (create/overwrite) a document in Firestore.
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''), # Add title and publication date from the item.
