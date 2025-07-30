@@ -27,7 +27,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 bucket = storage.bucket()
 
-# === DELETE EXISTING DOCUMENTS (EFFICIENT BATCH METHOD) ===
+# === DELETE EXISTING DOCUMENTS ===
 # Unchanged.
 def delete_all_documents():
     """
@@ -55,7 +55,6 @@ def delete_all_documents():
     else:
         print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
 
-
 # === FETCH JSON FEED ===
 # Unchanged.
 def fetch_feed():
@@ -63,7 +62,7 @@ def fetch_feed():
     resp.raise_for_status()
     return resp.json().get('items', [])
 
-# === PROCESS EACH ITEM (MODIFIED BASED ON YOUR WORKING SCRIPT) ===
+# === PROCESS EACH ITEM (REBUILT FROM YOUR WORKING SCRIPT) ===
 def process_items(items):
     for item in items:
         image_src = item.get('link')
@@ -72,120 +71,93 @@ def process_items(items):
             continue
 
         original_filename = os.path.basename(image_src)
-        original_doc_id = os.path.splitext(original_filename)[0]
-
+        
         try:
             r = requests.get(image_src, stream=True)
             r.raise_for_status()
-            img_data = r.content # This is the pristine, original image data
+            img_data = r.content
             content_type = r.headers.get('Content-Type', 'image/jpeg')
         except Exception as e:
             print(f" ❌ Download failed for {image_src}: {e}")
             continue
 
-        # --- BLOCK 1: PROCESS AND UPLOAD THE "LIGHT" IMAGE (YOUR WORKING LOGIC) ---
+        # --- LIGHT IMAGE WORKFLOW ---
         try:
             print(f"   - Processing light version for {original_filename}...")
-            # Open the image from the downloaded bytes
+            # Create a Pillow object ONLY for getting light image metadata
             with Image.open(BytesIO(img_data)) as img_light:
-                # Ensure image is in RGB mode for blurhash
-                img_light_rgb = img_light.convert('RGB') if img_light.mode != 'RGB' else img_light
-                    
-                width, height = img_light_rgb.size # Get image dimensions
-                aspect_ratio = height / width if width else None # Calculate aspect ratio
-                
-                # Generate the BlurHash. We know this call is destructive to the img_light_rgb object.
+                img_light_rgb = img_light.convert('RGB')
+                width, height = img_light_rgb.size
+                aspect_ratio = height / width if width else None
+                # This is the last thing we do with this object
                 blurhash_string_light = blurhash.encode(img_light_rgb, x_components=4, y_components=3)
 
-            # Define a unique filename and doc_id for the light version
+            # Upload the original bytes and create the Firestore doc
             light_filename = f"light-{original_filename}"
-            light_doc_id = f"light-{original_doc_id}"
-
-            # Upload the ORIGINAL, UNTOUCHED image data
+            light_doc_id = f"light-{os.path.splitext(original_filename)[0]}"
             blob_path_light = f"images/{light_filename}"
             bucket.blob(blob_path_light).upload_from_string(img_data, content_type=content_type)
             public_url_light = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_light, safe='')}?alt=media"
-
-            # Create the Firestore document for the light version
-            doc_ref_light = db.collection(COLLECTION_NAME).document(light_doc_id)
-            doc_ref_light.set({
-                'title': item.get('title', ''),
-                'pubDate': item.get('pubDate', ''),
-                'image': public_url_light,
-                'width': width,
-                'height': height,
-                'aspect': aspect_ratio,
-                'blurhash': blurhash_string_light,
-                'brightness': 'light', # <-- Add the new field
-                'fetched': firestore.SERVER_TIMESTAMP
+            db.collection(COLLECTION_NAME).document(light_doc_id).set({
+                'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
+                'image': public_url_light, 'width': width, 'height': height,
+                'aspect': aspect_ratio, 'blurhash': blurhash_string_light,
+                'brightness': 'light', 'fetched': firestore.SERVER_TIMESTAMP
             })
             print(f" ✅ Uploaded & saved (light): {light_doc_id}")
-
         except Exception as e:
             print(f" ❌ Failed during LIGHT processing for {original_filename}: {e}")
-            continue # If light fails, don't bother with dark
-
-        # --- BLOCK 2: PROCESS AND UPLOAD THE "DARK" IMAGE (NEW, ISOLATED LOGIC) ---
+            # Do not continue, still attempt the dark version
+        
+        # --- DARK IMAGE WORKFLOW (COMPLETELY SEPARATE) ---
         try:
             print(f"   - Processing dark version for {original_filename}...")
-            # Re-open the image from the ORIGINAL downloaded bytes to get a fresh object
+            # Create a SECOND, totally separate Pillow object
             with Image.open(BytesIO(img_data)) as img_dark:
-                img_dark_rgb = img_dark.convert('RGB') if img_dark.mode != 'RGB' else img_dark
+                img_dark_rgb = img_dark.convert('RGB')
                 
-                # Perform the brightness enhancement
+                # Rule: Do ALL Pillow manipulations FIRST
                 enhancer = ImageEnhance.Brightness(img_dark_rgb)
                 final_dark_img = enhancer.enhance(0.7)
 
-                # Get the metadata from the new dark image
+                # Now get metadata from the NEWLY created dark image
                 dark_width, dark_height = final_dark_img.size
                 dark_aspect_ratio = dark_height / dark_width if dark_width else None
+                
+                # Rule: The LAST thing we do is call the destructive blurhash function
                 blurhash_string_dark = blurhash.encode(final_dark_img, x_components=4, y_components=3)
 
-                # Convert the final dark image to bytes for upload
+                # Convert the manipulated image to bytes for upload
                 buffer = BytesIO()
                 final_dark_img.save(buffer, format='JPEG')
                 dark_img_data_for_upload = buffer.getvalue()
 
-            # Define a unique filename and doc_id for the dark version
+            # Upload the new bytes and create the Firestore doc
             dark_filename = f"dark-{original_filename}"
-            dark_doc_id = f"dark-{original_doc_id}"
-
-            # Upload the NEWLY CREATED dark image data
+            dark_doc_id = f"dark-{os.path.splitext(original_filename)[0]}"
             blob_path_dark = f"images/{dark_filename}"
             bucket.blob(blob_path_dark).upload_from_string(dark_img_data_for_upload, content_type='image/jpeg')
             public_url_dark = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_dark, safe='')}?alt=media"
-            
-            # Create the Firestore document for the dark version
-            doc_ref_dark = db.collection(COLLECTION_NAME).document(dark_doc_id)
-            doc_ref_dark.set({
-                'title': item.get('title', ''),
-                'pubDate': item.get('pubDate', ''),
-                'image': public_url_dark,
-                'width': dark_width,
-                'height': dark_height,
-                'aspect': dark_aspect_ratio,
-                'blurhash': blurhash_string_dark,
-                'brightness': 'dark', # <-- Add the new field
-                'fetched': firestore.SERVER_TIMESTAMP
+            db.collection(COLLECTION_NAME).document(dark_doc_id).set({
+                'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
+                'image': public_url_dark, 'width': dark_width, 'height': dark_height,
+                'aspect': dark_aspect_ratio, 'blurhash': blurhash_string_dark,
+                'brightness': 'dark', 'fetched': firestore.SERVER_TIMESTAMP
             })
             print(f" ✅ Uploaded & saved (dark): {dark_doc_id}")
-
         except Exception as e:
             print(f" ❌ Failed during DARK processing for {original_filename}: {e}")
-            continue # If dark fails, just move on to the next newspaper
 
 # === MAIN ===
 # Unchanged.
 def main():
     print("🧹 Clearing Firestore collection…")
     delete_all_documents()
-
     print("\n🔄 Fetching feed…")
     items = fetch_feed()
     if not items:
         print("   → No items found in feed.")
         return
-        
     print(f"   → {len(items)} items found. Processing…\n")
     process_items(items)
     print("\n✔️  Done.")
