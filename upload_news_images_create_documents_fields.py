@@ -73,20 +73,26 @@ def process_items(items): # Define the function to process items.
             print(f"   - Performing Pillow operations for {original_filename}...") # Print a status message.
             # --- Light Image Data --- # Process for the "light" version of the image.
             with Image.open(BytesIO(original_img_data)) as img: # Open the image from bytes in memory using Pillow.
-                img_rgb = img.convert('RGB') # Convert the image to RGB format.
-                light_width, light_height = img_rgb.size # Get the width and height of the light image.
-                light_aspect_ratio = light_height / light_width if light_width else None # Calculate the aspect ratio, avoiding division by zero.
+                img_rgb = img.convert('RGB') # Convert to RGB. 
+                enhancer = ImageEnhance.Brightness(img_rgb) # Create a brightness enhancer. 
+                light_img_obj = enhancer.enhance(0.9) # Reduce brightness by 10% (0.9 of original brightness). 
+                light_width, light_height = light_img_obj.size # Get the width and height of the light image. 
+                light_aspect_ratio = light_height / light_width if light_width else None # Calculate the aspect ratio. 
+                # Save the generated light image bytes into a variable # Comment explaining the next steps. 
+                light_buffer = BytesIO() # Create an in-memory binary stream to save the light image. 
+                light_img_obj.save(light_buffer, format='JPEG') # Save the light image object to the buffer as JPEG. 
+                final_light_img_data = light_buffer.getvalue() # Get the bytes from the buffer.
 
             # --- Dark Image Data --- # Process for the "dark" version of the image.
             with Image.open(BytesIO(original_img_data)) as img: # Open the original image again for dark version processing.
                 img_rgb = img.convert('RGB') # Convert to RGB.
                 enhancer = ImageEnhance.Brightness(img_rgb) # Create a brightness enhancer.
-                dark_img_obj = enhancer.enhance(0.86) # Reduce brightness by 14% (0.86 of original brightness).
-                dark_width, dark_height = dark_img_obj.size # Get the width and height of the dark image.
-                dark_aspect_ratio = dark_height / dark_width if dark_width else None # Calculate the aspect ratio.
-                # Save the generated dark image bytes into a variable # Comment explaining the next steps.
-                dark_buffer = BytesIO() # Create an in-memory binary stream to save the dark image.
-                dark_img_obj.save(dark_buffer, format='JPEG') # Save the dark image object to the buffer as JPEG.
+                dark_img_obj = enhancer.enhance(0.75) # Reduce brightness by 25% (0.75 of original brightness).
+                dark_width, dark_height = dark_img_obj.size # Get the width and height of the dark image. 
+                dark_aspect_ratio = dark_height / dark_width if dark_width else None # Calculate the aspect ratio. 
+                # Save the generated dark image bytes into a variable # Comment explaining the next steps. 
+                dark_buffer = BytesIO() # Create an in-memory binary stream to save the dark image. 
+                dark_img_obj.save(dark_buffer, format='JPEG') # Save the dark image object to the buffer as JPEG. 
                 final_dark_img_data = dark_buffer.getvalue() # Get the bytes from the buffer.
 
             print("     - Pillow operations complete.") # Print a completion message for Pillow operations.

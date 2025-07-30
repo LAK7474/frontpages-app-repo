@@ -53,7 +53,7 @@ jobs:
       # ADDED: This is the reliable way to create a delay.
       # It gives GitHub Pages time to publish the new JSON file from the previous job.
       - name: Wait for GitHub Pages to deploy
-        run: sleep 90s
+        run: sleep 20s
 
       - name: Install dependencies for upload
         run: |
