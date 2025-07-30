@@ -97,11 +97,15 @@ def process_items(items):
             if img.mode != 'RGB':
                 img = img.convert('RGB')
                 
-            width, height = img.size
+            width, height = img.size # Get image dimensions
+            aspect_ratio = height / width if width else None # Calculate aspect ratio
             
             # Generate the BlurHash string from the Pillow image object.
             blurhash_string = blurhash.encode(img, x_components=4, y_components=3)
 
+        except ZeroDivisionError:
+            print(f" ❌ Warning: Image {filename} has zero width, cannot calculate aspect ratio.")
+            width, height, aspect_ratio = None, None, None
         except Exception as e:
             print(f" ❌ Could not get image dimensions or blurhash for {filename}: {e}")
             width, height = None, None
@@ -121,6 +125,7 @@ def process_items(items):
             'image': public_url,
             'width': width,
             'height': height,
+            'aspect': aspect_ratio, # <--- ADDED: Save the aspect ratio to Firestore.
             'blurhash': blurhash_string,  # <--- ADDED: Save the new blurhash string to Firestore.
             'fetched': firestore.SERVER_TIMESTAMP
         })
