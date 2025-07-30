@@ -87,7 +87,7 @@ def process_items(items): # Define the function to process items.
             with Image.open(BytesIO(original_img_data)) as img: # Open the original image again for dark version processing.
                 img_rgb = img.convert('RGB') # Convert to RGB.
                 enhancer = ImageEnhance.Brightness(img_rgb) # Create a brightness enhancer.
-                dark_img_obj = enhancer.enhance(0.75) # Reduce brightness by 25% (0.75 of original brightness).
+                dark_img_obj = enhancer.enhance(0.80) # Reduce brightness by 25% (0.75 of original brightness).
                 dark_width, dark_height = dark_img_obj.size # Get the width and height of the dark image. 
                 dark_aspect_ratio = dark_height / dark_width if dark_width else None # Calculate the aspect ratio. 
                 # Save the generated dark image bytes into a variable # Comment explaining the next steps. 
