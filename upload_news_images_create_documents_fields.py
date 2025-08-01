@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Final with Correct Date Parsing) ===
+# === upload_news_images_create_documents_fields.py (Final with String Date Format) ===
 # ===================================================================================
 
 import os
@@ -13,7 +13,7 @@ from io import BytesIO
 import google.generativeai as genai
 import traceback
 import re
-from datetime import datetime, timedelta, timezone ### UNCHANGED ###
+from datetime import datetime, timedelta, timezone
 
 # === CONFIGURATION (UNCHANGED) ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
@@ -101,29 +101,32 @@ def generate_ocr_text(image_data: bytes) -> str:
         traceback.print_exc()
         return "Text could not be extracted from this image."
 
-# === DATE LOGIC FUNCTION (CORRECTED) === ### MODIFIED ###
-def calculate_paper_date(pub_date_str: str) -> datetime | None:
+# === DATE LOGIC FUNCTION (MODIFIED) === ### MODIFIED ###
+def calculate_paper_date(pub_date_str: str) -> str | None: # Return type is now str
     """
-    Calculates the actual date of the newspaper based on its publication time.
+    Calculates the actual date of the newspaper and returns it as a formatted string.
     If pub time is >= 8 PM, the paper is for the next day.
     """
     if not pub_date_str:
         return None
     try:
-        # This is the corrected format string to match "2025-08-01 23:17:45"
+        # Step 1: Parse the incoming date string
         parsed_date = datetime.strptime(pub_date_str, "%Y-%m-%d %H:%M:%S")
-        
-        # Assume the parsed date is in UTC, which is standard for GitHub Actions
         parsed_date = parsed_date.replace(tzinfo=timezone.utc)
 
-        # The core logic remains the same and is correct
+        # Step 2: Apply the "next day" logic
         if parsed_date.hour >= 20:
             paper_date = parsed_date + timedelta(days=1)
         else:
             paper_date = parsed_date
         
-        # Return a consistent datetime object set to midnight UTC for the correct day
-        return paper_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Step 3: Format the final date object into the desired string format
+        # %A = Full weekday name (e.g., Sunday)
+        # %d = Day of the month as a number (e.g., 20)
+        # %B = Full month name (e.g., July)
+        # %Y = Full year (e.g., 2025)
+        return paper_date.strftime("%A %d %B %Y")
+        
     except (ValueError, TypeError):
         print(f"   - ⚠️ Could not parse date: {pub_date_str}")
         return None
@@ -167,7 +170,7 @@ def process_items(items):
             print(" ▶️  Skipped item with no link")
             continue
         
-        paper_date = calculate_paper_date(pub_date_str)
+        paper_date_str_formatted = calculate_paper_date(pub_date_str) # The variable now holds the formatted string
 
         original_filename = os.path.basename(image_src)
         
@@ -231,7 +234,7 @@ def process_items(items):
             public_url_light = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_light, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(light_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
-                'dateOfPaper': paper_date,
+                'dateOfPaper': paper_date_str_formatted, # Use the formatted string
                 'image': public_url_light, 'width': light_width, 'height': light_height,
                 'aspect': light_aspect_ratio, 'blurhash': blurhash_light,
                 'brightness': 'light', 'fetched': SERVER_TIMESTAMP,
@@ -251,9 +254,9 @@ def process_items(items):
             public_url_dark = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_dark, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(dark_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
-                'dateOfPaper': paper_date,
+                'dateOfPaper': paper_date_str_formatted, # Use the formatted string
                 'image': public_url_dark, 'width': dark_width, 'height': dark_height,
-                'aspect': dark_aspect_ratio, 'blurhash': blurhash_dark,
+                'aspect': dark_aspect_ratio, 'blurhash': blurhash__dark,
                 'brightness': 'dark', 'fetched': SERVER_TIMESTAMP,
                 'analysis': analysis_text,
                 'ocr_text': ocr_text
