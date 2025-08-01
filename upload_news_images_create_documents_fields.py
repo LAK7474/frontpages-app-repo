@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Final with Web Search Tool) ===
+# === upload_news_images_create_documents_fields.py (Definitive Final Version) ===
 # ===================================================================================
 
 import os
@@ -60,65 +60,60 @@ def google_search(query: str) -> str:
         print(f"    - ❌ ERROR during web search: {e}")
         return f"Web search failed with an error: {e}"
 
-# === MODIFIED HELPER FUNCTION FOR ADVANCED AI ANALYSIS ===
-def generate_ai_analysis(image_data: bytes) -> str | None:
+# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (BUG FIX) ===
+def generate_ai_analysis(image_data: bytes) -> str:
     """Generates news analysis by letting the Gemini Pro model use a web search tool."""
     try:
         print("   - 🧠 Calling Gemini 1.5 Pro with search tool available...")
         
-        # This is the magic: declare the model and the tools it is allowed to use
         model = genai.GenerativeModel(
             model_name='gemini-1.5-pro-latest',
-            tools=[google_search] # We pass our Python function directly to the model
+            tools=[google_search]
         )
         
         image_part = {"mime_type": "image/jpeg", "data": image_data}
-        # A more advanced prompt that encourages the model to use its tool
         prompt = """Based on the attached newspaper front page, first identify the main, most prominent headline. Then, use the provided google_search tool to find the very latest news and context about that specific headline. Finally, write a solid analysis of the day's news, integrating the real-time information from your search. Start the entire response with "Today's insert newspaper title here front page..." - this must be how it starts."""
 
-        # First call to Gemini. It will either answer or decide to use a tool.
+        # First call to Gemini
         response = model.generate_content([prompt, image_part], request_options={"timeout": 120})
         
-        # This gets the first response candidate from the model
-        response_part = response.candidates[0].content.parts[0]
-
-        # Check if the model decided to call our search function
-        if hasattr(response_part, 'function_call'):
-            function_call = response_part.function_call
-            if function_call.name == 'google_search':
-                # The model wants to search. Get the query it intelligently generated.
-                query = function_call.args['query']
-                
-                # Execute our actual search function with the model's query
-                search_results_text = google_search(query=query)
-                
-                # Now, we make a SECOND call to the model, giving it the search results
-                print("    -  Feeding search results back to the model for final analysis...")
-                final_response = model.generate_content(
-                    [
-                        prompt, 
-                        image_part,
-                        # This special object tells the model what its tool call produced
-                        genai.protos.Part(
-                            function_response=genai.protos.FunctionResponse(
-                                name='google_search',
-                                response={'result': search_results_text}
-                            )
+        # Check if the model's response contains a function call
+        candidate = response.candidates[0]
+        if candidate.content.parts and candidate.content.parts[0].function_call:
+            # The model wants to search, handle the function call
+            function_call = candidate.content.parts[0].function_call
+            query = function_call.args['query']
+            
+            # Execute your actual search function
+            search_results_text = google_search(query=query)
+            
+            # Make the SECOND call, feeding the search results back to the model
+            print("    -  Feeding search results back to the model for final analysis...")
+            final_response = model.generate_content(
+                [
+                    prompt, 
+                    image_part,
+                    # This special object tells the model what its tool call produced
+                    genai.protos.Part(
+                        function_response=genai.protos.FunctionResponse(
+                            name='google_search',
+                            response={'result': search_results_text}
                         )
-                    ]
-                )
-                print("     - Context-aware analysis generated successfully.")
-                return final_response.text
-
-        # If the model didn't need to search, just return its initial response
-        print("     - Analysis generated without needing a web search.")
-        return response.text
+                    )
+                ]
+            )
+            print("     - Context-aware analysis generated successfully.")
+            return final_response.text
+        else:
+            # The model answered directly without needing to search.
+            print("     - Analysis generated without needing a web search.")
+            return response.text
 
     except Exception as e:
         print(f"     - ❌ FATAL ERROR during Gemini analysis: {e}")
         return "AI analysis could not be generated for this front page due to a server error."
 
-# === (The rest of your file remains exactly the same) ===
+# === (The rest of your file remains exactly the same below this line) ===
 
 # === DELETE EXISTING DOCUMENTS ===
 def delete_all_documents():
