@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Definitive Final Version) ===
+# === upload_news_images_create_documents_fields.py (Definitive Final Version v2) ===
 # ===================================================================================
 
 import os
@@ -11,6 +11,7 @@ from urllib.parse import quote
 from PIL import Image, ImageEnhance
 from io import BytesIO
 import google.generativeai as genai
+import traceback # Added for more detailed error logging
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
@@ -60,7 +61,7 @@ def google_search(query: str) -> str:
         print(f"    - ❌ ERROR during web search: {e}")
         return f"Web search failed with an error: {e}"
 
-# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (BUG FIX) ===
+# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (DEFINITIVE BUG FIX) ===
 def generate_ai_analysis(image_data: bytes) -> str:
     """Generates news analysis by letting the Gemini Pro model use a web search tool."""
     try:
@@ -77,12 +78,19 @@ def generate_ai_analysis(image_data: bytes) -> str:
         # First call to Gemini
         response = model.generate_content([prompt, image_part], request_options={"timeout": 120})
         
-        # Check if the model's response contains a function call
+        # Manually check for a function call before trying to access .text
         candidate = response.candidates[0]
-        if candidate.content.parts and candidate.content.parts[0].function_call:
-            # The model wants to search, handle the function call
-            function_call = candidate.content.parts[0].function_call
-            query = function_call.args['query']
+        function_call_part = None
+        for part in candidate.content.parts:
+            if part.function_call:
+                function_call_part = part.function_call
+                break
+
+        # Now, use a robust if/else to handle the two distinct cases
+        if function_call_part:
+            # === TOOL CALLING PATH ===
+            print(f"   - Model wants to use tool: '{function_call_part.name}'")
+            query = function_call_part.args['query']
             
             # Execute your actual search function
             search_results_text = google_search(query=query)
@@ -105,12 +113,15 @@ def generate_ai_analysis(image_data: bytes) -> str:
             print("     - Context-aware analysis generated successfully.")
             return final_response.text
         else:
-            # The model answered directly without needing to search.
+            # === DIRECT ANSWER PATH ===
+            # We are now certain there is no function call, so calling .text is safe.
             print("     - Analysis generated without needing a web search.")
             return response.text
 
     except Exception as e:
+        # This will now print the full error and traceback to the GitHub log
         print(f"     - ❌ FATAL ERROR during Gemini analysis: {e}")
+        traceback.print_exc()
         return "AI analysis could not be generated for this front page due to a server error."
 
 # === (The rest of your file remains exactly the same below this line) ===
