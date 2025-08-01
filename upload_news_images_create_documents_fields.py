@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Definitive Final Version v2) ===
+# === upload_news_images_create_documents_fields.py (Final with Cleanup Logic) ===
 # ===================================================================================
 
 import os
@@ -11,7 +11,8 @@ from urllib.parse import quote
 from PIL import Image, ImageEnhance
 from io import BytesIO
 import google.generativeai as genai
-import traceback # Added for more detailed error logging
+import traceback
+import re # Added for the cleanup safety net
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
@@ -61,7 +62,7 @@ def google_search(query: str) -> str:
         print(f"    - ❌ ERROR during web search: {e}")
         return f"Web search failed with an error: {e}"
 
-# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (DEFINITIVE BUG FIX) ===
+# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (WITH CLEANUP) ===
 def generate_ai_analysis(image_data: bytes) -> str:
     """Generates news analysis by letting the Gemini Pro model use a web search tool."""
     try:
@@ -73,35 +74,30 @@ def generate_ai_analysis(image_data: bytes) -> str:
         )
         
         image_part = {"mime_type": "image/jpeg", "data": image_data}
-        prompt = """Based on the attached newspaper front page, first identify the main, most prominent headline. Then, use the provided google_search tool to find the very latest news and context about that specific headline. Finally, write a solid analysis of the day's news, integrating the real-time information from your search. Start the entire response with "Today's insert newspaper title here front page..." - this must be how it starts."""
+        
+        # 1. THE IMPROVED PROMPT
+        # Added a final sentence to explicitly forbid code in the output.
+        prompt = """Based on the attached newspaper front page, first identify the main, most prominent headline. Then, use the provided google_search tool to find the very latest news and context about that specific headline. Finally, write a solid analysis of the day's news, integrating the real-time information from your search. Start the entire response with "Today's insert newspaper title here front page...". Ensure the final output is a clean, narrative analysis and does not include any code, function calls, or tool outputs."""
 
         # First call to Gemini
         response = model.generate_content([prompt, image_part], request_options={"timeout": 120})
         
-        # Manually check for a function call before trying to access .text
+        raw_text = ""
         candidate = response.candidates[0]
-        function_call_part = None
-        for part in candidate.content.parts:
-            if part.function_call:
-                function_call_part = part.function_call
-                break
-
-        # Now, use a robust if/else to handle the two distinct cases
-        if function_call_part:
+        
+        # Check if the model decided to use the tool
+        if candidate.content.parts and candidate.content.parts[0].function_call:
             # === TOOL CALLING PATH ===
-            print(f"   - Model wants to use tool: '{function_call_part.name}'")
-            query = function_call_part.args['query']
-            
-            # Execute your actual search function
+            function_call = candidate.content.parts[0].function_call
+            print(f"   - Model wants to use tool: '{function_call.name}'")
+            query = function_call.args['query']
             search_results_text = google_search(query=query)
             
-            # Make the SECOND call, feeding the search results back to the model
             print("    -  Feeding search results back to the model for final analysis...")
             final_response = model.generate_content(
                 [
                     prompt, 
                     image_part,
-                    # This special object tells the model what its tool call produced
                     genai.protos.Part(
                         function_response=genai.protos.FunctionResponse(
                             name='google_search',
@@ -110,16 +106,21 @@ def generate_ai_analysis(image_data: bytes) -> str:
                     )
                 ]
             )
-            print("     - Context-aware analysis generated successfully.")
-            return final_response.text
+            raw_text = final_response.text
+            print("     - Context-aware analysis generated.")
         else:
             # === DIRECT ANSWER PATH ===
-            # We are now certain there is no function call, so calling .text is safe.
+            raw_text = response.text
             print("     - Analysis generated without needing a web search.")
-            return response.text
+
+        # 2. THE CLEANUP SAFETY NET
+        # This regex will find and remove the entire tool_outputs code block.
+        cleanup_regex = r"```tool_outputs.*?```"
+        cleaned_text = re.sub(cleanup_regex, "", raw_text, flags=re.DOTALL).strip()
+        
+        return cleaned_text
 
     except Exception as e:
-        # This will now print the full error and traceback to the GitHub log
         print(f"     - ❌ FATAL ERROR during Gemini analysis: {e}")
         traceback.print_exc()
         return "AI analysis could not be generated for this front page due to a server error."
