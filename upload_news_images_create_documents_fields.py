@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Final with OCR Reading Mode) ===
+# === upload_news_images_create_documents_fields.py (Definitive Final with OCR) ===
 # ===================================================================================
 
 import os
@@ -95,21 +95,15 @@ def generate_ai_analysis(image_data: bytes) -> str:
         traceback.print_exc()
         return "AI analysis could not be generated."
 
-# === NEW HELPER FUNCTION FOR OCR TEXT EXTRACTION === ### NEW ###
+# === HELPER FUNCTION FOR OCR TEXT EXTRACTION ===
 def generate_ocr_text(image_data: bytes) -> str:
     """Performs OCR on an image using Gemini Flash and returns the extracted text."""
     try:
         print("   - 📄 Calling Gemini 1.5 Flash for OCR text extraction...")
-        # We use the faster 'flash' model for this straightforward task.
         model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
-        
         image_part = {"mime_type": "image/jpeg", "data": image_data}
-        
-        # A very direct prompt for OCR.
         prompt = """Perform Optical Character Recognition (OCR) on the attached image of a newspaper front page. Extract all visible text content, including headlines, subheadings, captions, and any smaller article text. Preserve the general structure where possible, but do not add any of your own commentary, analysis, or summarization. The output should only be the text you can read from the image."""
-
         response = model.generate_content([prompt, image_part], request_options={"timeout": 100})
-        
         print("     - OCR text extracted successfully.")
         return response.text
     except Exception as e:
@@ -117,7 +111,31 @@ def generate_ocr_text(image_data: bytes) -> str:
         traceback.print_exc()
         return "Text could not be extracted from this image."
 
-# === (The rest of the file has minor modifications to integrate this) ===
+# === CORE WORKFLOW FUNCTIONS (RESTORED) ===
+def delete_all_documents():
+    """Deletes all documents from the target Firestore collection."""
+    collection_ref = db.collection(COLLECTION_NAME)
+    docs = collection_ref.stream()
+    deleted_count = 0
+    batch = db.batch()
+    for doc in docs:
+        batch.delete(doc.reference)
+        deleted_count += 1
+        if deleted_count % 500 == 0:
+            batch.commit()
+            batch = db.batch()
+    if deleted_count % 500 > 0:
+        batch.commit()
+    if deleted_count > 0:
+        print(f"🧹 All {deleted_count} documents successfully deleted from {COLLECTION_NAME}")
+    else:
+        print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
+
+def fetch_feed():
+    """Fetches the JSON feed from the specified URL."""
+    resp = requests.get(RSS_JSON_FEED_URL)
+    resp.raise_for_status()
+    return resp.json().get('items', [])
 
 # === PROCESS EACH ITEM ===
 def process_items(items):
@@ -138,14 +156,13 @@ def process_items(items):
             print(f" ❌ Download failed for {original_filename}: {e}")
             continue
 
-        # --- STAGE 1.5: GENERATE AI CONTENT (BOTH ANALYSIS AND OCR) --- ### MODIFIED ###
+        # --- STAGE 1.5: GENERATE AI CONTENT (BOTH ANALYSIS AND OCR) ---
         analysis_text = generate_ai_analysis(original_img_data)
-        ocr_text = generate_ocr_text(original_img_data) # Call the new OCR function
+        ocr_text = generate_ocr_text(original_img_data)
 
         # --- STAGE 2: ALL PILLOW MANIPULATIONS ---
         try:
             print(f"   - Performing Pillow operations for {original_filename}...")
-            # (Pillow logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 img_rgb = img.convert('RGB')
                 enhancer = ImageEnhance.Brightness(img_rgb)
@@ -173,7 +190,6 @@ def process_items(items):
         # --- STAGE 3: ALL BLURHASH ENCODINGS ---
         try:
             print(f"   - Performing Blurhash operations for {original_filename}...")
-            # (Blurhash logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 blurhash_light = blurhash.encode(img, x_components=4, y_components=3)
             with Image.open(BytesIO(final_dark_img_data)) as img:
@@ -183,7 +199,7 @@ def process_items(items):
             print(f" ❌ Failed during BLURHASH processing for {original_filename}: {e}")
             continue
 
-        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE --- ### MODIFIED ###
+        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE ---
         # Light Version
         try:
             light_filename = f"light-{original_filename}"
@@ -197,7 +213,7 @@ def process_items(items):
                 'aspect': light_aspect_ratio, 'blurhash': blurhash_light,
                 'brightness': 'light', 'fetched': SERVER_TIMESTAMP,
                 'analysis': analysis_text,
-                'ocr_text': ocr_text # Add the new field
+                'ocr_text': ocr_text
             })
             print(f" ✅ Uploaded & saved (light): {light_doc_id}")
         except Exception as e:
@@ -216,31 +232,13 @@ def process_items(items):
                 'aspect': dark_aspect_ratio, 'blurhash': blurhash_dark,
                 'brightness': 'dark', 'fetched': SERVER_TIMESTAMP,
                 'analysis': analysis_text,
-                'ocr_text': ocr_text # Add the new field here too
+                'ocr_text': ocr_text
             })
             print(f" ✅ Uploaded & saved (dark): {dark_doc_id}")
         except Exception as e:
             print(f" ❌ Failed to WRITE dark version for {original_filename}: {e}")
 
-# === MAIN and DELETE functions are unchanged ===
-def delete_all_documents():
-    collection_ref = db.collection(COLLECTION_NAME)
-    docs = collection_ref.stream()
-    deleted_count = 0
-    batch = db.batch()
-    for doc in docs:
-        batch.delete(doc.reference)
-        deleted_count += 1
-        if deleted_count % 500 == 0:
-            batch.commit()
-            batch = db.batch()
-    if deleted_count % 500 > 0:
-        batch.commit()
-    if deleted_count > 0:
-        print(f"🧹 All {deleted_count} documents successfully deleted from {COLLECTION_NAME}")
-    else:
-        print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
-
+# === MAIN ===
 def main():
     print("🧹 Clearing Firestore collection…")
     delete_all_documents()
