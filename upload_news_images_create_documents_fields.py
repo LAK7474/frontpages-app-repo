@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Definitive Final with OCR) ===
+# === upload_news_images_create_documents_fields.py (Final with dateOfPaper) ===
 # ===================================================================================
 
 import os
@@ -13,6 +13,7 @@ from io import BytesIO
 import google.generativeai as genai
 import traceback
 import re
+from datetime import datetime, timedelta, timezone ### NEW ###
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
@@ -39,14 +40,12 @@ except KeyError as e:
     print(f"❌ FATAL ERROR: A required secret is missing from the environment: {e}")
     exit(1)
 
-# === HELPER FUNCTION FOR WEB SEARCH ===
+# === HELPER FUNCTIONS (UNCHANGED) ===
 def google_search(query: str) -> str:
     """Performs a Google search using the Custom Search API and returns results."""
     print(f"    - 🔎 Performing real-time web search for: '{query}'")
     url = "https://www.googleapis.com/customsearch/v1"
-    params = {
-        'q': query, 'key': SEARCH_API_KEY, 'cx': SEARCH_ENGINE_ID, 'num': 3
-    }
+    params = {'q': query, 'key': SEARCH_API_KEY, 'cx': SEARCH_ENGINE_ID, 'num': 3}
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
@@ -58,7 +57,6 @@ def google_search(query: str) -> str:
         print(f"    - ❌ ERROR during web search: {e}")
         return f"Web search failed with an error: {e}"
 
-# === HELPER FUNCTION FOR AI ANALYSIS ===
 def generate_ai_analysis(image_data: bytes) -> str:
     """Generates news analysis by letting the Gemini Pro model use a web search tool."""
     try:
@@ -67,26 +65,20 @@ def generate_ai_analysis(image_data: bytes) -> str:
         image_part = {"mime_type": "image/jpeg", "data": image_data}
         prompt = """Based on the attached newspaper front page, first identify the main, most prominent headline. Then, use the provided google_search tool to find the very latest news and context about that specific headline. Finally, write a solid analysis of the day's news, integrating the real-time information from your search. Start the entire response with "Today's insert newspaper title here front page...". Ensure the final output is a clean, narrative analysis and does not include any code, function calls, or tool outputs."""
         response = model.generate_content([prompt, image_part], request_options={"timeout": 120})
-        
         raw_text = ""
         candidate = response.candidates[0]
-        
         if candidate.content.parts and candidate.content.parts[0].function_call:
             function_call = candidate.content.parts[0].function_call
             print(f"   - Model wants to use tool: '{function_call.name}'")
             query = function_call.args['query']
             search_results_text = google_search(query=query)
-            
             print("    -  Feeding search results back to the model...")
-            final_response = model.generate_content(
-                [prompt, image_part, genai.protos.Part(function_response=genai.protos.FunctionResponse(name='google_search', response={'result': search_results_text}))]
-            )
+            final_response = model.generate_content([prompt, image_part, genai.protos.Part(function_response=genai.protos.FunctionResponse(name='google_search', response={'result': search_results_text}))])
             raw_text = final_response.text
             print("     - Context-aware analysis generated.")
         else:
             raw_text = response.text
             print("     - Analysis generated without web search.")
-
         cleanup_regex = r"```tool_outputs.*?```"
         cleaned_text = re.sub(cleanup_regex, "", raw_text, flags=re.DOTALL).strip()
         return cleaned_text
@@ -95,7 +87,6 @@ def generate_ai_analysis(image_data: bytes) -> str:
         traceback.print_exc()
         return "AI analysis could not be generated."
 
-# === HELPER FUNCTION FOR OCR TEXT EXTRACTION ===
 def generate_ocr_text(image_data: bytes) -> str:
     """Performs OCR on an image using Gemini Flash and returns the extracted text."""
     try:
@@ -111,7 +102,36 @@ def generate_ocr_text(image_data: bytes) -> str:
         traceback.print_exc()
         return "Text could not be extracted from this image."
 
-# === CORE WORKFLOW FUNCTIONS (RESTORED) ===
+# === NEW HELPER FUNCTION FOR DATE LOGIC === ### NEW ###
+def calculate_paper_date(pub_date_str: str) -> datetime | None:
+    """
+    Calculates the actual date of the newspaper based on its publication time.
+    If pub time is >= 8 PM, the paper is for the next day.
+    """
+    if not pub_date_str:
+        return None
+    try:
+        # Parse the pubDate string (e.g., "Fri, 01 Aug 2025 21:59:00 GMT")
+        # The format string must match the date format from your generate.py script
+        # Assuming RFC 2822 format with GMT timezone
+        parsed_date = datetime.strptime(pub_date_str, "%a, %d %b %Y %H:%M:%S %Z")
+        # Make the datetime object timezone-aware (UTC, as GMT is equivalent)
+        parsed_date = parsed_date.replace(tzinfo=timezone.utc)
+
+        # The core logic: if the hour is 8 PM (20:00) or later, it's tomorrow's paper
+        if parsed_date.hour >= 20:
+            paper_date = parsed_date + timedelta(days=1)
+        else:
+            paper_date = parsed_date
+        
+        # Return a consistent datetime object set to midnight UTC for the correct day
+        return paper_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    except (ValueError, TypeError):
+        print(f"   - ⚠️ Could not parse date: {pub_date_str}")
+        return None
+
+
+# === CORE WORKFLOW FUNCTIONS (UNCHANGED) ===
 def delete_all_documents():
     """Deletes all documents from the target Firestore collection."""
     collection_ref = db.collection(COLLECTION_NAME)
@@ -137,14 +157,19 @@ def fetch_feed():
     resp.raise_for_status()
     return resp.json().get('items', [])
 
-# === PROCESS EACH ITEM ===
+# === PROCESS EACH ITEM (MODIFIED) ===
 def process_items(items):
     for item in items:
-        # --- STAGE 1: DOWNLOAD ---
+        # --- STAGE 1: DOWNLOAD AND DATE CALCULATION --- ### MODIFIED ###
         image_src = item.get('link')
+        pub_date_str = item.get('pubDate')
+
         if not image_src:
             print(" ▶️  Skipped item with no link")
             continue
+
+        # Calculate the paper date right away
+        paper_date = calculate_paper_date(pub_date_str)
 
         original_filename = os.path.basename(image_src)
         
@@ -156,13 +181,14 @@ def process_items(items):
             print(f" ❌ Download failed for {original_filename}: {e}")
             continue
 
-        # --- STAGE 1.5: GENERATE AI CONTENT (BOTH ANALYSIS AND OCR) ---
+        # --- STAGE 1.5: GENERATE AI CONTENT ---
         analysis_text = generate_ai_analysis(original_img_data)
         ocr_text = generate_ocr_text(original_img_data)
 
-        # --- STAGE 2: ALL PILLOW MANIPULATIONS ---
+        # --- STAGE 2 & 3 (PILLOW & BLURHASH) ARE UNCHANGED ---
         try:
             print(f"   - Performing Pillow operations for {original_filename}...")
+            # (Pillow logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 img_rgb = img.convert('RGB')
                 enhancer = ImageEnhance.Brightness(img_rgb)
@@ -187,9 +213,9 @@ def process_items(items):
             print(f" ❌ Failed during PILLOW processing for {original_filename}: {e}")
             continue
             
-        # --- STAGE 3: ALL BLURHASH ENCODINGS ---
         try:
             print(f"   - Performing Blurhash operations for {original_filename}...")
+            # (Blurhash logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 blurhash_light = blurhash.encode(img, x_components=4, y_components=3)
             with Image.open(BytesIO(final_dark_img_data)) as img:
@@ -199,7 +225,7 @@ def process_items(items):
             print(f" ❌ Failed during BLURHASH processing for {original_filename}: {e}")
             continue
 
-        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE ---
+        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE --- ### MODIFIED ###
         # Light Version
         try:
             light_filename = f"light-{original_filename}"
@@ -209,6 +235,7 @@ def process_items(items):
             public_url_light = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_light, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(light_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
+                'dateOfPaper': paper_date, # Add the new field
                 'image': public_url_light, 'width': light_width, 'height': light_height,
                 'aspect': light_aspect_ratio, 'blurhash': blurhash_light,
                 'brightness': 'light', 'fetched': SERVER_TIMESTAMP,
@@ -228,6 +255,7 @@ def process_items(items):
             public_url_dark = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_dark, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(dark_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
+                'dateOfPaper': paper_date, # Add the new field here too
                 'image': public_url_dark, 'width': dark_width, 'height': dark_height,
                 'aspect': dark_aspect_ratio, 'blurhash': blurhash_dark,
                 'brightness': 'dark', 'fetched': SERVER_TIMESTAMP,
