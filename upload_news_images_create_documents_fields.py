@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Final with dateOfPaper) ===
+# === upload_news_images_create_documents_fields.py (Final with Correct Date Parsing) ===
 # ===================================================================================
 
 import os
@@ -13,15 +13,15 @@ from io import BytesIO
 import google.generativeai as genai
 import traceback
 import re
-from datetime import datetime, timedelta, timezone ### NEW ###
+from datetime import datetime, timedelta, timezone ### UNCHANGED ###
 
-# === CONFIGURATION ===
+# === CONFIGURATION (UNCHANGED) ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
 BUCKET_NAME = "frontpages-fireb.firebasestorage.app"
 COLLECTION_NAME = "frontpage_fixed"
 RSS_JSON_FEED_URL = "https://lak7474.github.io/frontpages-app-repo/frontpages.json"
 
-# === INITIALIZE FIREBASE ===
+# === INITIALIZATIONS (UNCHANGED) ===
 if not firebase_admin._apps:
     cred = credentials.Certificate(SERVICE_ACCOUNT_PATH)
     firebase_admin.initialize_app(cred, {'storageBucket': BUCKET_NAME})
@@ -30,7 +30,6 @@ db = firestore.client()
 bucket = storage.bucket()
 SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
 
-# === INITIALIZE APIS (GEMINI & SEARCH) ===
 try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     SEARCH_API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"]
@@ -42,7 +41,7 @@ except KeyError as e:
 
 # === HELPER FUNCTIONS (UNCHANGED) ===
 def google_search(query: str) -> str:
-    """Performs a Google search using the Custom Search API and returns results."""
+    # (This function is correct and unchanged)
     print(f"    - 🔎 Performing real-time web search for: '{query}'")
     url = "https://www.googleapis.com/customsearch/v1"
     params = {'q': query, 'key': SEARCH_API_KEY, 'cx': SEARCH_ENGINE_ID, 'num': 3}
@@ -58,7 +57,7 @@ def google_search(query: str) -> str:
         return f"Web search failed with an error: {e}"
 
 def generate_ai_analysis(image_data: bytes) -> str:
-    """Generates news analysis by letting the Gemini Pro model use a web search tool."""
+    # (This function is correct and unchanged)
     try:
         print("   - 🧠 Calling Gemini 1.5 Pro for analysis...")
         model = genai.GenerativeModel(model_name='gemini-1.5-pro-latest', tools=[google_search])
@@ -88,7 +87,7 @@ def generate_ai_analysis(image_data: bytes) -> str:
         return "AI analysis could not be generated."
 
 def generate_ocr_text(image_data: bytes) -> str:
-    """Performs OCR on an image using Gemini Flash and returns the extracted text."""
+    # (This function is correct and unchanged)
     try:
         print("   - 📄 Calling Gemini 1.5 Flash for OCR text extraction...")
         model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
@@ -102,7 +101,7 @@ def generate_ocr_text(image_data: bytes) -> str:
         traceback.print_exc()
         return "Text could not be extracted from this image."
 
-# === NEW HELPER FUNCTION FOR DATE LOGIC === ### NEW ###
+# === DATE LOGIC FUNCTION (CORRECTED) === ### MODIFIED ###
 def calculate_paper_date(pub_date_str: str) -> datetime | None:
     """
     Calculates the actual date of the newspaper based on its publication time.
@@ -111,14 +110,13 @@ def calculate_paper_date(pub_date_str: str) -> datetime | None:
     if not pub_date_str:
         return None
     try:
-        # Parse the pubDate string (e.g., "Fri, 01 Aug 2025 21:59:00 GMT")
-        # The format string must match the date format from your generate.py script
-        # Assuming RFC 2822 format with GMT timezone
-        parsed_date = datetime.strptime(pub_date_str, "%a, %d %b %Y %H:%M:%S %Z")
-        # Make the datetime object timezone-aware (UTC, as GMT is equivalent)
+        # This is the corrected format string to match "2025-08-01 23:17:45"
+        parsed_date = datetime.strptime(pub_date_str, "%Y-%m-%d %H:%M:%S")
+        
+        # Assume the parsed date is in UTC, which is standard for GitHub Actions
         parsed_date = parsed_date.replace(tzinfo=timezone.utc)
 
-        # The core logic: if the hour is 8 PM (20:00) or later, it's tomorrow's paper
+        # The core logic remains the same and is correct
         if parsed_date.hour >= 20:
             paper_date = parsed_date + timedelta(days=1)
         else:
@@ -133,7 +131,7 @@ def calculate_paper_date(pub_date_str: str) -> datetime | None:
 
 # === CORE WORKFLOW FUNCTIONS (UNCHANGED) ===
 def delete_all_documents():
-    """Deletes all documents from the target Firestore collection."""
+    # (This function is correct and unchanged)
     collection_ref = db.collection(COLLECTION_NAME)
     docs = collection_ref.stream()
     deleted_count = 0
@@ -152,23 +150,23 @@ def delete_all_documents():
         print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
 
 def fetch_feed():
-    """Fetches the JSON feed from the specified URL."""
+    # (This function is correct and unchanged)
     resp = requests.get(RSS_JSON_FEED_URL)
     resp.raise_for_status()
     return resp.json().get('items', [])
 
-# === PROCESS EACH ITEM (MODIFIED) ===
+# === PROCESS ITEMS AND MAIN (UNCHANGED) ===
 def process_items(items):
+    # (This function is correct and unchanged)
     for item in items:
-        # --- STAGE 1: DOWNLOAD AND DATE CALCULATION --- ### MODIFIED ###
+        # --- STAGE 1: DOWNLOAD AND DATE CALCULATION ---
         image_src = item.get('link')
         pub_date_str = item.get('pubDate')
 
         if not image_src:
             print(" ▶️  Skipped item with no link")
             continue
-
-        # Calculate the paper date right away
+        
         paper_date = calculate_paper_date(pub_date_str)
 
         original_filename = os.path.basename(image_src)
@@ -185,10 +183,9 @@ def process_items(items):
         analysis_text = generate_ai_analysis(original_img_data)
         ocr_text = generate_ocr_text(original_img_data)
 
-        # --- STAGE 2 & 3 (PILLOW & BLURHASH) ARE UNCHANGED ---
+        # --- STAGE 2 & 3 (PILLOW & BLURHASH) ---
         try:
             print(f"   - Performing Pillow operations for {original_filename}...")
-            # (Pillow logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 img_rgb = img.convert('RGB')
                 enhancer = ImageEnhance.Brightness(img_rgb)
@@ -215,7 +212,6 @@ def process_items(items):
             
         try:
             print(f"   - Performing Blurhash operations for {original_filename}...")
-            # (Blurhash logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 blurhash_light = blurhash.encode(img, x_components=4, y_components=3)
             with Image.open(BytesIO(final_dark_img_data)) as img:
@@ -225,7 +221,7 @@ def process_items(items):
             print(f" ❌ Failed during BLURHASH processing for {original_filename}: {e}")
             continue
 
-        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE --- ### MODIFIED ###
+        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE ---
         # Light Version
         try:
             light_filename = f"light-{original_filename}"
@@ -235,7 +231,7 @@ def process_items(items):
             public_url_light = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_light, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(light_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
-                'dateOfPaper': paper_date, # Add the new field
+                'dateOfPaper': paper_date,
                 'image': public_url_light, 'width': light_width, 'height': light_height,
                 'aspect': light_aspect_ratio, 'blurhash': blurhash_light,
                 'brightness': 'light', 'fetched': SERVER_TIMESTAMP,
@@ -255,7 +251,7 @@ def process_items(items):
             public_url_dark = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET_NAME}/o/{quote(blob_path_dark, safe='')}?alt=media"
             db.collection(COLLECTION_NAME).document(dark_doc_id).set({
                 'title': item.get('title', ''), 'pubDate': item.get('pubDate', ''),
-                'dateOfPaper': paper_date, # Add the new field here too
+                'dateOfPaper': paper_date,
                 'image': public_url_dark, 'width': dark_width, 'height': dark_height,
                 'aspect': dark_aspect_ratio, 'blurhash': blurhash_dark,
                 'brightness': 'dark', 'fetched': SERVER_TIMESTAMP,
@@ -266,7 +262,6 @@ def process_items(items):
         except Exception as e:
             print(f" ❌ Failed to WRITE dark version for {original_filename}: {e}")
 
-# === MAIN ===
 def main():
     print("🧹 Clearing Firestore collection…")
     delete_all_documents()
