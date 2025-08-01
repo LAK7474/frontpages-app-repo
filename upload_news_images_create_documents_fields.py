@@ -1,5 +1,5 @@
 # ===================================================================================
-# === upload_news_images_create_documents_fields.py (Final with Cleanup Logic) ===
+# === upload_news_images_create_documents_fields.py (Final with OCR Reading Mode) ===
 # ===================================================================================
 
 import os
@@ -12,7 +12,7 @@ from PIL import Image, ImageEnhance
 from io import BytesIO
 import google.generativeai as genai
 import traceback
-import re # Added for the cleanup safety net
+import re
 
 # === CONFIGURATION ===
 SERVICE_ACCOUNT_PATH = "service-account.json"
@@ -31,7 +31,6 @@ SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
 
 # === INITIALIZE APIS (GEMINI & SEARCH) ===
 try:
-    # Get all keys from the environment (set by GitHub Actions)
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     SEARCH_API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"]
     SEARCH_ENGINE_ID = os.environ["GOOGLE_SEARCH_ENGINE_ID"]
@@ -40,16 +39,13 @@ except KeyError as e:
     print(f"❌ FATAL ERROR: A required secret is missing from the environment: {e}")
     exit(1)
 
-# === NEW HELPER FUNCTION TO PERFORM A REAL WEB SEARCH ===
+# === HELPER FUNCTION FOR WEB SEARCH ===
 def google_search(query: str) -> str:
     """Performs a Google search using the Custom Search API and returns results."""
     print(f"    - 🔎 Performing real-time web search for: '{query}'")
     url = "https://www.googleapis.com/customsearch/v1"
     params = {
-        'q': query,
-        'key': SEARCH_API_KEY,
-        'cx': SEARCH_ENGINE_ID,
-        'num': 3  # Get the top 3 results
+        'q': query, 'key': SEARCH_API_KEY, 'cx': SEARCH_ENGINE_ID, 'num': 3
     }
     try:
         response = requests.get(url, params=params)
@@ -62,95 +58,66 @@ def google_search(query: str) -> str:
         print(f"    - ❌ ERROR during web search: {e}")
         return f"Web search failed with an error: {e}"
 
-# === REWRITTEN HELPER FUNCTION FOR ADVANCED AI ANALYSIS (WITH CLEANUP) ===
+# === HELPER FUNCTION FOR AI ANALYSIS ===
 def generate_ai_analysis(image_data: bytes) -> str:
     """Generates news analysis by letting the Gemini Pro model use a web search tool."""
     try:
-        print("   - 🧠 Calling Gemini 1.5 Pro with search tool available...")
-        
-        model = genai.GenerativeModel(
-            model_name='gemini-1.5-pro-latest',
-            tools=[google_search]
-        )
-        
+        print("   - 🧠 Calling Gemini 1.5 Pro for analysis...")
+        model = genai.GenerativeModel(model_name='gemini-1.5-pro-latest', tools=[google_search])
         image_part = {"mime_type": "image/jpeg", "data": image_data}
-        
-        # 1. THE IMPROVED PROMPT
-        # Added a final sentence to explicitly forbid code in the output.
         prompt = """Based on the attached newspaper front page, first identify the main, most prominent headline. Then, use the provided google_search tool to find the very latest news and context about that specific headline. Finally, write a solid analysis of the day's news, integrating the real-time information from your search. Start the entire response with "Today's insert newspaper title here front page...". Ensure the final output is a clean, narrative analysis and does not include any code, function calls, or tool outputs."""
-
-        # First call to Gemini
         response = model.generate_content([prompt, image_part], request_options={"timeout": 120})
         
         raw_text = ""
         candidate = response.candidates[0]
         
-        # Check if the model decided to use the tool
         if candidate.content.parts and candidate.content.parts[0].function_call:
-            # === TOOL CALLING PATH ===
             function_call = candidate.content.parts[0].function_call
             print(f"   - Model wants to use tool: '{function_call.name}'")
             query = function_call.args['query']
             search_results_text = google_search(query=query)
             
-            print("    -  Feeding search results back to the model for final analysis...")
+            print("    -  Feeding search results back to the model...")
             final_response = model.generate_content(
-                [
-                    prompt, 
-                    image_part,
-                    genai.protos.Part(
-                        function_response=genai.protos.FunctionResponse(
-                            name='google_search',
-                            response={'result': search_results_text}
-                        )
-                    )
-                ]
+                [prompt, image_part, genai.protos.Part(function_response=genai.protos.FunctionResponse(name='google_search', response={'result': search_results_text}))]
             )
             raw_text = final_response.text
             print("     - Context-aware analysis generated.")
         else:
-            # === DIRECT ANSWER PATH ===
             raw_text = response.text
-            print("     - Analysis generated without needing a web search.")
+            print("     - Analysis generated without web search.")
 
-        # 2. THE CLEANUP SAFETY NET
-        # This regex will find and remove the entire tool_outputs code block.
         cleanup_regex = r"```tool_outputs.*?```"
         cleaned_text = re.sub(cleanup_regex, "", raw_text, flags=re.DOTALL).strip()
-        
         return cleaned_text
-
     except Exception as e:
-        print(f"     - ❌ FATAL ERROR during Gemini analysis: {e}")
+        print(f"     - ❌ FATAL ERROR during analysis: {e}")
         traceback.print_exc()
-        return "AI analysis could not be generated for this front page due to a server error."
+        return "AI analysis could not be generated."
 
-# === (The rest of your file remains exactly the same below this line) ===
+# === NEW HELPER FUNCTION FOR OCR TEXT EXTRACTION === ### NEW ###
+def generate_ocr_text(image_data: bytes) -> str:
+    """Performs OCR on an image using Gemini Flash and returns the extracted text."""
+    try:
+        print("   - 📄 Calling Gemini 1.5 Flash for OCR text extraction...")
+        # We use the faster 'flash' model for this straightforward task.
+        model = genai.GenerativeModel(model_name='gemini-1.5-flash-latest')
+        
+        image_part = {"mime_type": "image/jpeg", "data": image_data}
+        
+        # A very direct prompt for OCR.
+        prompt = """Perform Optical Character Recognition (OCR) on the attached image of a newspaper front page. Extract all visible text content, including headlines, subheadings, captions, and any smaller article text. Preserve the general structure where possible, but do not add any of your own commentary, analysis, or summarization. The output should only be the text you can read from the image."""
 
-# === DELETE EXISTING DOCUMENTS ===
-def delete_all_documents():
-    collection_ref = db.collection(COLLECTION_NAME)
-    docs = collection_ref.stream()
-    deleted_count = 0
-    batch = db.batch()
-    for doc in docs:
-        batch.delete(doc.reference)
-        deleted_count += 1
-        if deleted_count % 500 == 0:
-            batch.commit()
-            batch = db.batch()
-    if deleted_count % 500 > 0:
-        batch.commit()
-    if deleted_count > 0:
-        print(f"🧹 All {deleted_count} documents successfully deleted from {COLLECTION_NAME}")
-    else:
-        print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
+        response = model.generate_content([prompt, image_part], request_options={"timeout": 100})
+        
+        print("     - OCR text extracted successfully.")
+        return response.text
+    except Exception as e:
+        print(f"     - ❌ FATAL ERROR during OCR: {e}")
+        traceback.print_exc()
+        return "Text could not be extracted from this image."
 
-# === FETCH JSON FEED ===
-def fetch_feed():
-    resp = requests.get(RSS_JSON_FEED_URL)
-    resp.raise_for_status()
-    return resp.json().get('items', [])
+# === (The rest of the file has minor modifications to integrate this) ===
 
 # === PROCESS EACH ITEM ===
 def process_items(items):
@@ -171,13 +138,14 @@ def process_items(items):
             print(f" ❌ Download failed for {original_filename}: {e}")
             continue
 
-        # --- STAGE 1.5: GENERATE AI ANALYSIS (ONCE!) ---
+        # --- STAGE 1.5: GENERATE AI CONTENT (BOTH ANALYSIS AND OCR) --- ### MODIFIED ###
         analysis_text = generate_ai_analysis(original_img_data)
+        ocr_text = generate_ocr_text(original_img_data) # Call the new OCR function
 
         # --- STAGE 2: ALL PILLOW MANIPULATIONS ---
         try:
             print(f"   - Performing Pillow operations for {original_filename}...")
-            # Light Image Data
+            # (Pillow logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 img_rgb = img.convert('RGB')
                 enhancer = ImageEnhance.Brightness(img_rgb)
@@ -188,7 +156,6 @@ def process_items(items):
                 light_img_obj.save(light_buffer, format='JPEG')
                 final_light_img_data = light_buffer.getvalue()
 
-            # Dark Image Data
             with Image.open(BytesIO(original_img_data)) as img:
                 img_rgb = img.convert('RGB')
                 enhancer = ImageEnhance.Brightness(img_rgb)
@@ -198,7 +165,6 @@ def process_items(items):
                 dark_buffer = BytesIO()
                 dark_img_obj.save(dark_buffer, format='JPEG')
                 final_dark_img_data = dark_buffer.getvalue()
-
             print("     - Pillow operations complete.")
         except Exception as e:
             print(f" ❌ Failed during PILLOW processing for {original_filename}: {e}")
@@ -207,18 +173,17 @@ def process_items(items):
         # --- STAGE 3: ALL BLURHASH ENCODINGS ---
         try:
             print(f"   - Performing Blurhash operations for {original_filename}...")
+            # (Blurhash logic is unchanged)
             with Image.open(BytesIO(original_img_data)) as img:
                 blurhash_light = blurhash.encode(img, x_components=4, y_components=3)
-
             with Image.open(BytesIO(final_dark_img_data)) as img:
                 blurhash_dark = blurhash.encode(img, x_components=4, y_components=3)
-            
             print("     - Blurhash operations complete.")
         except Exception as e:
             print(f" ❌ Failed during BLURHASH processing for {original_filename}: {e}")
             continue
 
-        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE ---
+        # --- STAGE 4: UPLOAD AND WRITE TO FIRESTORE --- ### MODIFIED ###
         # Light Version
         try:
             light_filename = f"light-{original_filename}"
@@ -231,7 +196,8 @@ def process_items(items):
                 'image': public_url_light, 'width': light_width, 'height': light_height,
                 'aspect': light_aspect_ratio, 'blurhash': blurhash_light,
                 'brightness': 'light', 'fetched': SERVER_TIMESTAMP,
-                'analysis': analysis_text
+                'analysis': analysis_text,
+                'ocr_text': ocr_text # Add the new field
             })
             print(f" ✅ Uploaded & saved (light): {light_doc_id}")
         except Exception as e:
@@ -249,13 +215,32 @@ def process_items(items):
                 'image': public_url_dark, 'width': dark_width, 'height': dark_height,
                 'aspect': dark_aspect_ratio, 'blurhash': blurhash_dark,
                 'brightness': 'dark', 'fetched': SERVER_TIMESTAMP,
-                'analysis': analysis_text
+                'analysis': analysis_text,
+                'ocr_text': ocr_text # Add the new field here too
             })
             print(f" ✅ Uploaded & saved (dark): {dark_doc_id}")
         except Exception as e:
             print(f" ❌ Failed to WRITE dark version for {original_filename}: {e}")
 
-# === MAIN ===
+# === MAIN and DELETE functions are unchanged ===
+def delete_all_documents():
+    collection_ref = db.collection(COLLECTION_NAME)
+    docs = collection_ref.stream()
+    deleted_count = 0
+    batch = db.batch()
+    for doc in docs:
+        batch.delete(doc.reference)
+        deleted_count += 1
+        if deleted_count % 500 == 0:
+            batch.commit()
+            batch = db.batch()
+    if deleted_count % 500 > 0:
+        batch.commit()
+    if deleted_count > 0:
+        print(f"🧹 All {deleted_count} documents successfully deleted from {COLLECTION_NAME}")
+    else:
+        print(f"🧹 Collection {COLLECTION_NAME} is already empty.")
+
 def main():
     print("🧹 Clearing Firestore collection…")
     delete_all_documents()
