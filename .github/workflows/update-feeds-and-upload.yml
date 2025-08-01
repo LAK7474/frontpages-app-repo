@@ -39,8 +39,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: update_feeds # This ensures it always runs AFTER update_feeds completes
     env:
-      # This line makes your Gemini API Key available to the Python script
+         # This block now makes all three keys available to Python
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_SEARCH_API_KEY: ${{ secrets.GOOGLE_SEARCH_API_KEY }}
+      GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
