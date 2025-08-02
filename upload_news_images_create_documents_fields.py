@@ -34,7 +34,7 @@ SERVER_TIMESTAMP = firestore.SERVER_TIMESTAMP
 
 try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    SEARCH_API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"])
+    SEARCH_API_KEY = os.environ["GOOGLE_SEARCH_API_KEY"]
     SEARCH_ENGINE_ID = os.environ["GOOGLE_SEARCH_ENGINE_ID"]
     print("✨ All APIs configured successfully (Gemini & Google Search).")
 except KeyError as e:
